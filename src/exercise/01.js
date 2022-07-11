@@ -9,100 +9,99 @@ import {dequal} from 'dequal'
 import * as userClient from '../user-client'
 import {useAuth} from '../auth-context'
 
-const UserContext = React.createContext()
-UserContext.displayName = 'UserContext'
+const UserContext = React.createContext() // creating the context object
+UserContext.displayName = 'UserContext' // for debugging
 
-function userReducer(state, action) {
-  switch (action.type) {
-    case 'start update': {
-      return {
-        ...state,
-        user: {...state.user, ...action.updates},
-        status: 'pending',
-        storedUser: state.user,
+function userReducer(state, action) { // reducer function for the user state
+  switch (action.type) { // switch on the action type
+    case 'start update': { // start update action
+      return { // return the new state
+        ...state, // keep the old state
+        user: {...state.user, ...action.updates}, // update the user
+        status: 'pending', // set the status to pending
+        storedUser: state.user, // store the old user
       }
     }
-    case 'finish update': {
-      return {
-        ...state,
-        user: action.updatedUser,
-        status: 'resolved',
-        storedUser: null,
-        error: null,
+    case 'finish update': { // finish update action
+      return { // return the new state
+        ...state, // keep the old state
+        user: action.updatedUser, // update the user
+        status: 'resolved', // set the status to resolved
+        storedUser: null, // clear the stored user
+        error: null, // clear the error
       }
     }
-    case 'fail update': {
-      return {
-        ...state,
-        status: 'rejected',
-        error: action.error,
-        user: state.storedUser,
-        storedUser: null,
+    case 'fail update': { // fail update action
+      return { // return the new state
+        ...state, // keep the old state
+        status: 'rejected', // set the status to rejected
+        error: action.error, // set the error
+        user: state.storedUser, // restore the old user
+        storedUser: null, // clear the stored user
       }
     }
-    case 'reset': {
-      return {
-        ...state,
-        status: null,
-        error: null,
+    case 'reset': { // reset action
+      return { // return the new state
+        ...state, // keep the old state
+        status: null, // clear the status
+        error: null, // clear the error
       }
     }
     default: {
-      throw new Error(`Unhandled action type: ${action.type}`)
+      throw new Error(`Unhandled action type: ${action.type}`) // throw an error if the action type is not handled
     }
   }
 }
 
-function UserProvider({children}) {
-  const {user} = useAuth()
-  const [state, dispatch] = React.useReducer(userReducer, {
-    status: null,
-    error: null,
-    storedUser: user,
-    user,
+function UserProvider({children}) { // provider component
+  const {user} = useAuth() // get the user from the auth context
+  const [state, dispatch] = React.useReducer(userReducer, { // create the state and dispatch functions
+    status: null, // set the status to null
+    error: null, // set the error to null
+    storedUser: user, // set the stored user to the user from the auth context
+    user, // set the user to the user from the auth context
   })
-  const value = [state, dispatch]
-  return <UserContext.Provider value={value}>{children}</UserContext.Provider>
+  const value = [state, dispatch] // create the value object
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider> // return the provider component
 }
 
-function useUser() {
-  const context = React.useContext(UserContext)
-  if (context === undefined) {
-    throw new Error(`useUser must be used within a UserProvider`)
+function useUser() { // hook for the user context
+  const context = React.useContext(UserContext) // get the context object
+  if (context === undefined) { // if the context object is undefined
+    throw new Error(`useUser must be used within a UserProvider`) // throw an error
   }
   return context
 }
 
-// 🐨 add a function here called `updateUser`
-// Then go down to the `handleSubmit` from `UserSettings` and put that logic in
-// this function. It should accept: dispatch, user, and updates
+const updateUser = (dispatch, user, updates) => { // update user function
+  dispatch({type: 'start update', updates: updates}) // start update action
+  userClient.updateUser(user, updates).then( // update the user
+      updatedUser => dispatch({type: 'finish update', updatedUser}),
+      error => dispatch({type: 'fail update', error}),
+  )
+};
 
 // export {UserProvider, useUser}
 
 // src/screens/user-profile.js
 // import {UserProvider, useUser} from './context/user-context'
 function UserSettings() {
-  const [{user, status, error}, userDispatch] = useUser()
+  const [{user, status, error}, userDispatch] = useUser() // get the user and user dispatch functions
 
-  const isPending = status === 'pending'
-  const isRejected = status === 'rejected'
+  const isPending = status === 'pending' // check if the status is pending
+  const isRejected = status === 'rejected' // check if the status is rejected
 
-  const [formState, setFormState] = React.useState(user)
+  const [formState, setFormState] = React.useState(user) // create the form state and set function
 
-  const isChanged = !dequal(user, formState)
+  const isChanged = !dequal(user, formState) // check if the user is changed
 
   function handleChange(e) {
     setFormState({...formState, [e.target.name]: e.target.value})
-  }
+  } // handle change function
 
   function handleSubmit(event) {
-    event.preventDefault()
-    // 🐨 move the following logic to the `updateUser` function you create above
-    userDispatch({type: 'start update', updates: formState})
-    userClient.updateUser(user, formState).then(
-      updatedUser => userDispatch({type: 'finish update', updatedUser}),
-      error => userDispatch({type: 'fail update', error}),
-    )
+    event.preventDefault(); // prevent the default submit behavior
+    updateUser(userDispatch, user, formState); // update the user
   }
 
   return (
